@@ -45,6 +45,7 @@ class Game:
         #a new game starts
         self.playing = True
         self.win = False
+        self.waiting_for_restart = False
 
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
@@ -106,6 +107,8 @@ class Game:
         pygame.mixer.music.stop()
         self.lose_sound.play()
 
+        self.waiting_for_restart = True
+
         button_width = 120
         button_height = 50
         button_x = (WIN_WIDTH - button_width) / 2
@@ -115,7 +118,7 @@ class Game:
         for sprite in self.all_sprites:
             sprite.kill()
 
-        while self.running:
+        while self.waiting_for_restart and self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -137,8 +140,7 @@ class Game:
             adj_mouse_pos = (adj_mouse_x, adj_mouse_y)
 
             if restart_button.is_pressed(adj_mouse_pos, mouse_pressed):
-                self.new()
-                self.main()
+                self.waiting_for_restart = False
                 return
 
             scaled_go_background = pygame.transform.scale(self.go_background, (adj_width, adj_height))
@@ -148,6 +150,58 @@ class Game:
             self.screen.blit(restart_button.image, (x_pad + button_x * self.scale_factor, y_pad + button_y * self.scale_factor))
             self.clock.tick(FPS)
             pygame.display.update()
+
+    def game_win(self):
+        for sprite in self.player:
+            if isinstance(sprite, Player):
+                pygame.mixer.music.stop()
+                self.win_sound.play()
+
+                self.waiting_for_restart = True
+
+                button_width = 120
+                button_height = 50
+                button_x = (WIN_WIDTH - button_width) / 2
+                button_y = (WIN_HEIGHT - button_height) / 2
+                restart_button = Button(button_x, button_y, button_width, button_height, WHITE, BLACK, 'Restart', 32, self.scale_factor)
+
+                for sprite in self.all_sprites:
+                    sprite.kill()
+
+                while self.waiting_for_restart and self.running:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            self.running = False
+
+                    mouse_pos = pygame.mouse.get_pos()
+                    mouse_pressed = pygame.mouse.get_pressed()
+
+                    screen_width, screen_height = self.screen.get_size()
+                    self.scale_factor = min(screen_width / WIN_WIDTH, screen_height / WIN_HEIGHT)
+                    adj_width = int(WIN_WIDTH * self.scale_factor)
+                    adj_height = int(WIN_HEIGHT * self.scale_factor)
+                    x_pad = (screen_width - adj_width) // 2
+                    y_pad = (screen_height - adj_height) // 2
+
+                    restart_button.update_position(button_x, button_y, button_width, button_height, self.scale_factor)
+
+                    adj_mouse_x = mouse_pos[0] - x_pad
+                    adj_mouse_y = mouse_pos[1] - y_pad
+                    adj_mouse_pos = (adj_mouse_x, adj_mouse_y)
+
+                    if restart_button.is_pressed(adj_mouse_pos, mouse_pressed):
+                        self.waiting_for_restart = False
+                        return
+
+                    scaled_gw_background = pygame.transform.scale(self.gw_background, (adj_width, adj_height))
+
+                    self.screen.fill(BLACK)
+                    self.screen.blit(scaled_gw_background, (x_pad, y_pad))
+                    self.screen.blit(restart_button.image, (x_pad + button_x * self.scale_factor, y_pad + button_y * self.scale_factor))
+                    self.clock.tick(FPS)
+                    pygame.display.update()
+            else:
+                pass
 
     def intro_screen(self):
         intro = True
@@ -192,65 +246,16 @@ class Game:
             self.clock.tick(FPS)
             pygame.display.update()
 
-    def game_win(self):
-        for sprite in self.player:
-            if isinstance(sprite, Player):
-                if self.win:
-                    pygame.mixer.music.stop()
-                    self.win_sound.play()
-
-                    button_width = 120
-                    button_height = 50
-                    button_x = (WIN_WIDTH - button_width) / 2
-                    button_y = (WIN_HEIGHT - button_height) / 2
-                    restart_button = Button(button_x, button_y, button_width, button_height, WHITE, BLACK, 'Restart', 32, self.scale_factor)
-
-                    for sprite in self.all_sprites:
-                        sprite.kill()
-
-                    while self.running:
-                        for event in pygame.event.get():
-                            if event.type == pygame.QUIT:
-                                self.running = False
-
-                        mouse_pos = pygame.mouse.get_pos()
-                        mouse_pressed = pygame.mouse.get_pressed()
-
-                        screen_width, screen_height = self.screen.get_size()
-                        self.scale_factor = min(screen_width / WIN_WIDTH, screen_height / WIN_HEIGHT)
-                        adj_width = int(WIN_WIDTH * self.scale_factor)
-                        adj_height = int(WIN_HEIGHT * self.scale_factor)
-                        x_pad = (screen_width - adj_width) // 2
-                        y_pad = (screen_height - adj_height) // 2
-
-                        restart_button.update_position(button_x, button_y, button_width, button_height, self.scale_factor)
-
-                        adj_mouse_x = mouse_pos[0] - x_pad
-                        adj_mouse_y = mouse_pos[1] - y_pad
-                        adj_mouse_pos = (adj_mouse_x, adj_mouse_y)
-
-                        if restart_button.is_pressed(adj_mouse_pos, mouse_pressed):
-                            self.new()
-                            self.main()
-                            return
-
-                        scaled_gw_background = pygame.transform.scale(self.gw_background, (adj_width, adj_height))
-
-                        self.screen.fill(BLACK)
-                        self.screen.blit(scaled_gw_background, (x_pad, y_pad))
-                        self.screen.blit(restart_button.image, (x_pad + button_x * self.scale_factor, y_pad + button_y * self.scale_factor))
-                        self.clock.tick(FPS)
-                        pygame.display.update()
-                else:
-                    pass
-
 g = Game()
 g.intro_screen()
-g.new()
 while g.running:
+    g.new()
     g.main()
-    g.game_win()
-    g.game_over()
+
+    if g.win:
+        g.game_win()
+    else:
+        g.game_over()
 
 pygame.quit()
 sys.exit()
