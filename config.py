@@ -1,3 +1,6 @@
+import os
+import sys
+
 WIN_WIDTH = 640
 WIN_HEIGHT = 480
 TILESIZE = 20
@@ -28,9 +31,17 @@ WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 LIGHT_BLUE = (173, 216, 230)
 
+def resource_path(relative_path):
+    """ Get absolute path to resource """
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 def load_tilemap(file_path):
     with open(file_path, 'r') as file:
         tilemap = [line.strip() for line in file.readlines()]
     return tilemap
 
-tilemap = load_tilemap('tilemap.txt')
+tilemap = load_tilemap(resource_path('assets/tilemap.txt'))

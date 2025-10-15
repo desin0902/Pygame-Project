@@ -22,7 +22,7 @@ class Player(pygame.sprite.Sprite):
         self.y_change = 0
         self.grounded = True
 
-        player_sprite = pygame.image.load("img/single.png").convert_alpha()
+        player_sprite = pygame.image.load(resource_path("assets/img/single.png")).convert_alpha()
         sprite_sheet = spritesheet.SpriteSheet(player_sprite)
 
         #segment different animations on sprite sheet
@@ -54,9 +54,9 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = self.y
 
         pygame.mixer.init()
-        self.jump_sound = pygame.mixer.Sound("sounds/jumping.wav")
+        self.jump_sound = pygame.mixer.Sound(resource_path("assets/sounds/jumping.wav"))
         self.jump_sound.set_volume(.2)
-        self.enemy_bounce = pygame.mixer.Sound("sounds/enemy-bounce.mp3")
+        self.enemy_bounce = pygame.mixer.Sound(resource_path("assets/sounds/enemy-bounce.mp3"))
         self.enemy_bounce.set_volume(.3)
 
     def update(self):
@@ -225,7 +225,7 @@ class Block(pygame.sprite.Sprite):
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
-        block_sprite = pygame.image.load("img/Brick 1.png").convert_alpha()
+        block_sprite = pygame.image.load(resource_path("assets/img/Brick 1.png")).convert_alpha()
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
@@ -247,7 +247,7 @@ class Block2(pygame.sprite.Sprite):
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
-        block_sprite = pygame.image.load("img/Brick 2.png").convert_alpha()
+        block_sprite = pygame.image.load(resource_path("assets/img/Brick 2.png")).convert_alpha()
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
@@ -269,7 +269,7 @@ class Flag(pygame.sprite.Sprite):
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.flag
         pygame.sprite.Sprite.__init__(self, self.groups)
-        flag_sprite = pygame.image.load("img/GameWinFlag.png").convert_alpha()
+        flag_sprite = pygame.image.load(resource_path("assets/img/GameWinFlag.png")).convert_alpha()
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
@@ -302,7 +302,7 @@ class Enemy(pygame.sprite.Sprite):
         self.grounded = True
         self.wasOnScreen = False
 
-        enemy_sprite = pygame.image.load("img/Mob1.png").convert_alpha()
+        enemy_sprite = pygame.image.load(resource_path("assets/img/Mob1.png")).convert_alpha()
         sprite_sheet = spritesheet.SpriteSheet(enemy_sprite)
 
         #segment different animations on sprite sheet
@@ -462,7 +462,7 @@ class Button:
 
         self.update_position(self.initial_x, self.initial_y, self.initial_width, self.initial_height, self.scale_factor)
 
-        self.button_sound = pygame.mixer.Sound("sounds/menu-select.mp3")
+        self.button_sound = pygame.mixer.Sound(resource_path("assets/sounds/menu-select.mp3"))
         self.button_sound.set_volume(.4)
 
     def update_position(self, x, y, width, height, scale_factor):
@@ -482,7 +482,7 @@ class Button:
         self.rect = self.image.get_rect(topleft=(self.x * self.scale_factor, self.y * self.scale_factor))
 
         scaled_fontsize = int(self.fontsize * self.scale_factor)
-        self.font = pygame.font.Font('Cantarell.ttf', scaled_fontsize)
+        self.font = pygame.font.Font(resource_path('assets/Cantarell.ttf'), scaled_fontsize)
         self.text = self.font.render(self.content, True, self.fg)
         self.text_rect = self.text.get_rect(center=(self.scaled_width / 2, self.scaled_height / 2))
         self.image.blit(self.text, self.text_rect)
