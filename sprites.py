@@ -3,15 +3,14 @@ from config import *
 import math
 import random
 import time
-import spritesheet
+from spritesheet import AnimatedSprite, SpriteSheet
 
-class Player(pygame.sprite.Sprite):
+class Player(AnimatedSprite):
     def __init__(self, game, x, y):
-
         self.game = game
         self._layer = PLAYER_LAYER
-        self.groups = self.game.all_sprites, self.game.player
-        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        super().__init__(self.game.all_sprites, self.game.player)
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
@@ -22,20 +21,11 @@ class Player(pygame.sprite.Sprite):
         self.y_change = 0
         self.grounded = True
 
-        player_sprite = pygame.image.load(resource_path("assets/img/single.png")).convert_alpha()
-        sprite_sheet = spritesheet.SpriteSheet(player_sprite)
+        player_sprite = pygame.image.load(resource_path(SPRITE_PLAYER)).convert_alpha()
+        sprite_sheet = SpriteSheet(player_sprite)
 
-        #segment different animations on sprite sheet
-        self.animation_list = []
         animation_steps = [5, 5, 5, 1, 8]
 
-        #selects animation to play
-        self.action_state = 0
-        self.last_update = pygame.time.get_ticks()
-
-        #sets speed of animation
-        self.animation_rate = 250
-        self.frame = 0
         step_counter = 0
 
         for animation in animation_steps:
@@ -97,61 +87,46 @@ class Player(pygame.sprite.Sprite):
 
     def movement(self):
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT]:
-            self.x_change -= PLAYER_SPEED
-            self.facing = 'left'
+        moving = keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or \
+                keys[pygame.K_d] or keys[pygame.K_e] or keys[pygame.K_UP]
+        new_state = None
 
-            #Changes animation based on player movement
-            if not self.action_state == 3:
-                self.action_state = 2
-
-        if keys[pygame.K_d]:
-            if not self.action_state == 3:
-                self.action_state = 1
-
-        if keys[pygame.K_e]:
-            if not self.action_state == 3:
-                self.action_state = 4
-
-        if keys[pygame.K_RIGHT]:
-            self.x_change += PLAYER_SPEED
-
-            #Changes animation based on player movement
-            if not self.action_state == 3:
-                self.action_state = 2
-
-        #Jump
         if keys[pygame.K_UP] and self.grounded:
             self.y_change -= PLAYER_JUMP_SPEED
             self.grounded = False
-
-            #change animation to jump
-            self.action_state = 3
-
-            #play sound effect
+            new_state = PLAYER_JUMP
             self.jump_sound.play()
 
-        #cap player speed
+        elif keys[pygame.K_RIGHT]:
+            self.x_change += PLAYER_SPEED
+            self.facing = 'right'
+            if not self.action_state == PLAYER_JUMP:
+                new_state = PLAYER_RUN
+        elif keys[pygame.K_LEFT]:
+            self.x_change -= PLAYER_SPEED
+            self.facing = 'left'
+            if not self.action_state == PLAYER_JUMP:
+                new_state = PLAYER_RUN
+
+        # special animations
+        elif keys[pygame.K_d]:
+            if not self.action_state == PLAYER_JUMP:
+                new_state = PLAYER_BLINK
+        elif keys[pygame.K_e]:
+            if not self.action_state == PLAYER_JUMP:
+                new_state = PLAYER_WAG
+
+        if self.grounded and not moving:
+            new_state = PLAYER_IDLE
+
+        if new_state is not None:
+            self.set_action_state(new_state)
+
+        # cap player speed
         if self.x_change > PLAYER_SPEED:
             self.x_change = PLAYER_SPEED
         elif self.x_change < -PLAYER_SPEED:
             self.x_change = -PLAYER_SPEED
-
-    def animate(self):
-        current_time = pygame.time.get_ticks()
-
-        if self.frame >= len(self.animation_list[self.action_state]):
-            self.frame = 0
-
-        #Updates the frame once enough time has passed
-        if current_time - self.last_update >= self.animation_rate:
-                self.frame += 1
-                self.last_update = current_time
-                if self.frame >= len(self.animation_list[self.action_state]):
-                    self.frame = 0
-
-        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
-        self.image.blit(self.animation_list[self.action_state][self.frame], (0, 0))
 
     def collision_detect(self, direction):
         hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
@@ -178,9 +153,13 @@ class Player(pygame.sprite.Sprite):
         if enemy_hits:
             if direction == 'y' and self.y_change > 0:
                 for hit in enemy_hits:
-                    if hit.action_state != 1:
-                        hit.action_state = 1
-                        hit.animation_rate = 75
+                    if hit.action_state != ENEMY_SMUSH:
+                        hit.action_state = ENEMY_SMUSH
+                        hit.animation_rate = ENEMY_DIE_SPEED
+                        hit.move_state = 'stop'
+                        hit.frame = 0
+                        hit.last_update = pygame.time.get_ticks()
+
                         keys = pygame.key.get_pressed()
                         if keys[pygame.K_UP]:
                             self.y_change = PLAYER_BOUNCE_SPEED
@@ -188,22 +167,22 @@ class Player(pygame.sprite.Sprite):
                             self.y_change = PLAYER_BOUNCE_SPEED / 2
                         self.grounded = False
 
-                        #change animation to jump
-                        self.action_state = 3
+                        # change animation to jump
+                        self.action_state = PLAYER_JUMP
 
                         self.enemy_bounce.play()
             else:
                 for hit in enemy_hits:
-                    if hit.action_state != 1:
+                    if hit.action_state != ENEMY_SMUSH:
                         self.game.win = False
                         self.game.playing = False
 
-        #fell off the map
+        # fell off the map
         if self.rect.top >= 480:
             self.game.win = False
             self.game.playing = False
 
-        #game win
+        # game win
         if pygame.sprite.spritecollide(self, self.game.flag, False):
             self.game.win = True
             self.game.playing = False
@@ -215,7 +194,6 @@ class Player(pygame.sprite.Sprite):
             self.grounded = False
         else:
             self.grounded = True
-            self.action_state = 0
         self.rect.y -= 1
 
 class Block(pygame.sprite.Sprite):
@@ -223,8 +201,8 @@ class Block(pygame.sprite.Sprite):
 
         self.game = game
         self._layer = BLOCK_LAYER
-        self.groups = self.game.all_sprites, self.game.blocks
-        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.blocks)
         block_sprite = pygame.image.load(resource_path(SPRITE_BRICK_1)).convert_alpha()
 
         self.x = x * TILESIZE
@@ -245,8 +223,8 @@ class Block2(pygame.sprite.Sprite):
 
         self.game = game
         self._layer = BLOCK_LAYER
-        self.groups = self.game.all_sprites, self.game.blocks
-        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.blocks)
         block_sprite = pygame.image.load(resource_path(SPRITE_BRICK_2)).convert_alpha()
 
         self.x = x * TILESIZE
@@ -267,8 +245,8 @@ class Flag(pygame.sprite.Sprite):
 
         self.game = game
         self._layer = BLOCK_LAYER
-        self.groups = self.game.all_sprites, self.game.flag
-        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.flag)
         flag_sprite = pygame.image.load(resource_path(SPRITE_FLAG)).convert_alpha()
 
         self.x = x * TILESIZE
@@ -284,12 +262,11 @@ class Flag(pygame.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
-class Enemy(pygame.sprite.Sprite):
+class Enemy(AnimatedSprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = ENEMY_LAYER
-        self.groups = self.game.all_sprites, self.game.enemy
-        pygame.sprite.Sprite.__init__(self, self.groups)
+        super().__init__(self.game.all_sprites, self.game.enemy)
 
         self.x = x * TILESIZE
         self.y = y * TILESIZE
@@ -302,21 +279,13 @@ class Enemy(pygame.sprite.Sprite):
         self.grounded = True
         self.wasOnScreen = False
 
-        enemy_sprite = pygame.image.load(resource_path(IMG_ENEMY_1)).convert_alpha()
-        sprite_sheet = spritesheet.SpriteSheet(enemy_sprite)
+        enemy_sprite = pygame.image.load(resource_path(SPRITE_ENEMY_1)).convert_alpha()
+        sprite_sheet = SpriteSheet(enemy_sprite)
 
-        #segment different animations on sprite sheet
-        self.animation_list = []
         animation_steps = [4, 5]
 
+        self.action_state = ENEMY_WALK
 
-        #selects animation to play
-        self.action_state = 0
-        self.last_update = pygame.time.get_ticks()
-
-        #sets speed of animation
-        self.animation_rate = 250
-        self.frame = 0
         step_counter = 0
 
         for animation in animation_steps:
@@ -334,14 +303,15 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
+
     def update(self):
-        if self.is_on_screen() or self.wasOnScreen:
+        if self.is_on_screen or self.wasOnScreen:
             self.wasOnScreen = True
             self.movement()
             self.animate()
 
-            #remove enemy once death animation completes
-            if self.action_state == 1 and self.frame == len(self.animation_list[1]) - 1:
+            # remove enemy once death animation completes
+            if self.action_state == ENEMY_SMUSH and self.frame == len(self.animation_list[1]) - 1:
                 self.kill()
 
             self.rect.x += self.x_change
@@ -358,6 +328,7 @@ class Enemy(pygame.sprite.Sprite):
                 self.y_change = 0
 
 
+    @property
     def is_on_screen(self):
         return self.rect.colliderect(self.game.camera.get_world_rect())
 
@@ -367,23 +338,8 @@ class Enemy(pygame.sprite.Sprite):
             self.x_change = -1
         elif self.move_state == 'right':
             self.x_change = 1
-
-
-    def animate(self):
-        current_time = pygame.time.get_ticks()
-
-        if self.frame >= len(self.animation_list[self.action_state]):
-            self.frame = 0
-
-        #Updates the frame once enough time has passed
-        if current_time - self.last_update >= self.animation_rate:
-                self.frame += 1
-                self.last_update = current_time
-                if self.frame >= len(self.animation_list[self.action_state]):
-                    self.frame = 0
-
-        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
-        self.image.blit(self.animation_list[self.action_state][self.frame], (0, 0))
+        else:
+            self.x_change = 0
 
 
     def collision_detect(self, direction):
