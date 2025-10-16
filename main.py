@@ -13,17 +13,17 @@ class Game:
         self.running = True
         self.scale_factor = 1
 
-        self.font = pygame.font.Font(resource_path('assets/Cantarell.ttf'), 32)
-        self.intro_background = pygame.image.load(resource_path("assets/img/DinioIntro.png"))
-        self.go_background = pygame.image.load(resource_path("assets/img/GameOver.png"))
-        self.gw_background = pygame.image.load(resource_path("assets/img/GameWin.png"))
+        self.font = pygame.font.Font(resource_path(MAIN_FONT), FONT_SIZE)
+        self.intro_background = pygame.image.load(resource_path(IMG_INTRO))
+        self.go_background = pygame.image.load(resource_path(IMG_GAME_OVER))
+        self.gw_background = pygame.image.load(resource_path(IMG_GAME_WIN))
 
         pygame.mixer.init()
-        pygame.mixer.music.load(resource_path("assets/sounds/sky-loop.wav"))
-        self.win_sound = pygame.mixer.Sound(resource_path("assets/sounds/level-win.wav"))
-        self.win_sound.set_volume(.6)
-        self.lose_sound = pygame.mixer.Sound(resource_path("assets/sounds/game-over.wav"))
-        self.lose_sound.set_volume(.6)
+        pygame.mixer.music.load(resource_path(MUSIC_MAIN))
+        self.win_sound = pygame.mixer.Sound(resource_path(SOUND_WIN))
+        self.win_sound.set_volume(VOL_SOUND)
+        self.lose_sound = pygame.mixer.Sound(resource_path(SOUND_GAME_OVER))
+        self.lose_sound.set_volume(VOL_SOUND)
 
         self.win = False
 

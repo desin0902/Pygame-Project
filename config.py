@@ -7,6 +7,39 @@ TILESIZE = 20
 FPS = 30
 SCROLL = (0, 0)
 
+ASSETS_DIR = "assets"
+
+IMG_DIR = f"{ASSETS_DIR}/img"
+SPRITES_DIR = IMG_DIR
+SOUNDS_DIR = f"{ASSETS_DIR}/sounds"
+FONT_DIR = ASSETS_DIR
+
+IMG_INTRO = f"{IMG_DIR}/DinioIntro.png"
+IMG_GAME_OVER = f"{IMG_DIR}/GameOver.png"
+IMG_GAME_WIN = f"{IMG_DIR}/GameWin.png"
+
+SPRITE_FLAG = f"{SPRITES_DIR}/GameWinFlag.png"
+SPRITE_BRICK_1 = f"{SPRITES_DIR}/Brick 1.png"
+SPRITE_BRICK_2 = f"{SPRITES_DIR}/Brick 2.png"
+
+MUSIC_MAIN = f"{SOUNDS_DIR}/sky-loop.wav"
+SOUND_WIN = f"{SOUNDS_DIR}/level-win.wav"
+SOUND_GAME_OVER = f"{SOUNDS_DIR}/game-over.wav"
+SOUND_MENU_SELECT = f"{SOUNDS_DIR}/menu-select.mp3"
+
+SOUND_JUMP = f"{SOUNDS_DIR}/jumping.wav"
+SOUND_BOUNCE = f"{SOUNDS_DIR}/enemy-bounce.mp3"
+
+VOL_SELECT = 0.4
+VOL_SOUND = 0.6
+VOL_JUMP = 0.2
+VOL_BOUNCE = 0.3
+
+MAIN_FONT = f"{FONT_DIR}/Cantarell.ttf"
+FONT_SIZE = 32
+
+TILEMAP_1 = f"{ASSETS_DIR}/tilemap.txt"
+
 PLAYER_WIDTH = 32
 PLAYER_HEIGHT = 32
 
@@ -21,6 +54,8 @@ ENEMY_HEIGHT = 18
 ENEMY_WIDTH = 22
 
 ENEMY_LAYER = 2
+
+IMG_ENEMY_1 = f"{IMG_DIR}/Mob1.png"
 
 GRAVITY = .4
 FRICTION = .25
