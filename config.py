@@ -13,6 +13,7 @@ IMG_DIR = f"{ASSETS_DIR}/img"
 SPRITES_DIR = IMG_DIR
 SOUNDS_DIR = f"{ASSETS_DIR}/sounds"
 FONT_DIR = ASSETS_DIR
+LEVEL_DIR = f"{ASSETS_DIR}/levels"
 
 IMG_INTRO = f"{IMG_DIR}/DinioIntro.png"
 IMG_GAME_OVER = f"{IMG_DIR}/GameOver.png"
@@ -38,7 +39,8 @@ VOL_BOUNCE = 0.3
 MAIN_FONT = f"{FONT_DIR}/Cantarell.ttf"
 FONT_SIZE = 32
 
-TILEMAP_1 = f"{ASSETS_DIR}/tilemap.txt"
+TILEMAP_1 = f"{LEVEL_DIR}/tilemap1.txt"
+TILEMAP_2 = f"{LEVEL_DIR}/tilemap2.txt"
 
 PLAYER_WIDTH = 32
 PLAYER_HEIGHT = 32
@@ -46,9 +48,11 @@ PLAYER_HEIGHT = 32
 PLAYER_LAYER = 3
 BLOCK_LAYER = 1
 
-PLAYER_SPEED = 4
+PLAYER_SPEED = 1
+PLAYER_MAX_SPEED = 5
 PLAYER_JUMP_SPEED = 7
 PLAYER_BOUNCE_SPEED = -10
+AIR_MOD = .7 
 
 # Animation States
 PLAYER_IDLE = 0
@@ -56,6 +60,7 @@ PLAYER_BLINK = 1
 PLAYER_RUN = 2
 PLAYER_JUMP = 3
 PLAYER_WAG = 4
+PLAYER_DEATH = 0 # temporary. need to make a new animation
 
 PLAYER_ANIMATION_SPEED = 250
 
@@ -73,8 +78,14 @@ ENEMY_LAYER = 2
 SPRITE_PLAYER = f"{SPRITES_DIR}/single.png"
 SPRITE_ENEMY_1 = f"{SPRITES_DIR}/Mob1.png"
 
+LEVEL_WIN_POINTS = 1000
+ENEMY_DIE_POINTS = 100
+
 GRAVITY = .4
+FAST_FALL_MOD = 1.5
+SHORT_HOP_MOD = 0.85
 FRICTION = .25
+AIR_RESISTANCE = .10
 
 RED = (255, 0, 0)
 BLACK = (0, 0, 0)
@@ -95,4 +106,6 @@ def load_tilemap(file_path):
         tilemap = [line.strip() for line in file.readlines()]
     return tilemap
 
-tilemap = load_tilemap(resource_path('assets/tilemap.txt'))
+LEVEL_1 = load_tilemap(resource_path(TILEMAP_1))
+LEVEL_2 = load_tilemap(resource_path(TILEMAP_2))
+LEVELS = [LEVEL_1, LEVEL_2]
