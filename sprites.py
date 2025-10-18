@@ -1,25 +1,20 @@
 import pygame
+import config
 from config import *
 import math
 import random
 import time
-from spritesheet import AnimatedSprite, SpriteSheet
+from parents import AnimatedSprite, SpriteSheet, Block, DisplayText
 
 class Player(AnimatedSprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = PLAYER_LAYER
 
-        super().__init__(self.game.all_sprites, self.game.player)
+        super().__init__(x, y, self.game.all_sprites, self.game.player)
 
-        self.x = x * TILESIZE
-        self.y = y * TILESIZE
         self.width = PLAYER_WIDTH
         self.height = PLAYER_HEIGHT
-
-        self.x_change = 0
-        self.y_change = 0
-        self.grounded = True
 
         player_sprite = pygame.image.load(resource_path(SPRITE_PLAYER)).convert_alpha()
         sprite_sheet = SpriteSheet(player_sprite)
@@ -43,6 +38,8 @@ class Player(AnimatedSprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
+        self.dead = False
+
         pygame.mixer.init()
         self.jump_sound = pygame.mixer.Sound(resource_path(SOUND_JUMP))
         self.jump_sound.set_volume(VOL_JUMP)
@@ -60,35 +57,14 @@ class Player(AnimatedSprite):
 
         self.check_if_falling()
 
-        #player gravity
-        if not self.grounded:
-            self.y_change += GRAVITY
-        else:
-            self.y_change = 0
-
-        #apply friction
-        keys = pygame.key.get_pressed()
-        if self.x_change > 0 and self.grounded and not keys[pygame.K_RIGHT]:
-            self.x_change -= FRICTION
-            if self.x_change < 0:
-                self.x_change = 0
-        elif self.x_change > 0 and not self.grounded and not keys[pygame.K_RIGHT]:
-            self.x_change -= FRICTION / 2
-            if self.x_change < 0:
-                self.x_change = 0
-        elif self.x_change < 0 and self.grounded and not keys[pygame.K_LEFT]:
-            self.x_change += FRICTION
-            if self.x_change > 0:
-                self.x_change = 0
-        elif self.x_change < 0 and not self.grounded and not keys[pygame.K_LEFT]:
-            self.x_change += FRICTION / 2
-            if self.x_change > 0:
-                self.x_change = 0
+        self.apply_gravity()
+        self.apply_friction()
 
     def movement(self):
         keys = pygame.key.get_pressed()
         moving = keys[pygame.K_LEFT] or keys[pygame.K_RIGHT] or \
-                keys[pygame.K_d] or keys[pygame.K_e] or keys[pygame.K_UP]
+                keys[pygame.K_d] or keys[pygame.K_e] or keys[pygame.K_UP] or \
+                (self.x_change != 0 and not self.action_state == PLAYER_JUMP)
         new_state = None
 
         if keys[pygame.K_UP] and self.grounded:
@@ -98,55 +74,86 @@ class Player(AnimatedSprite):
             self.jump_sound.play()
 
         elif keys[pygame.K_RIGHT]:
-            self.x_change += PLAYER_SPEED
             self.facing = 'right'
-            if not self.action_state == PLAYER_JUMP:
+            self.x_change += self.accelerate(1)
+            if not self.action_state == PLAYER_JUMP or self.grounded:
                 new_state = PLAYER_RUN
         elif keys[pygame.K_LEFT]:
-            self.x_change -= PLAYER_SPEED
             self.facing = 'left'
-            if not self.action_state == PLAYER_JUMP:
+            self.x_change -= self.accelerate(-1)
+            if not self.action_state == PLAYER_JUMP or self.grounded:
                 new_state = PLAYER_RUN
 
         # special animations
         elif keys[pygame.K_d]:
-            if not self.action_state == PLAYER_JUMP:
+            if not self.action_state == PLAYER_JUMP or self.grounded:
                 new_state = PLAYER_BLINK
         elif keys[pygame.K_e]:
-            if not self.action_state == PLAYER_JUMP:
+            if not self.action_state == PLAYER_JUMP or self.grounded:
                 new_state = PLAYER_WAG
 
         if self.grounded and not moving:
             new_state = PLAYER_IDLE
 
-        if new_state is not None:
+        if new_state is not None and new_state != self.action_state:
             self.set_action_state(new_state)
 
         # cap player speed
-        if self.x_change > PLAYER_SPEED:
-            self.x_change = PLAYER_SPEED
-        elif self.x_change < -PLAYER_SPEED:
-            self.x_change = -PLAYER_SPEED
+        if self.x_change > config.PLAYER_MAX_SPEED:
+            self.x_change = config.PLAYER_MAX_SPEED
+        elif self.x_change < -config.PLAYER_MAX_SPEED:
+            self.x_change = -config.PLAYER_MAX_SPEED
+
+        # short hop
+        if not keys[pygame.K_UP] and self.y_change < 0:
+            self.y_change *= SHORT_HOP_MOD
+
+    def accelerate(self, direction):
+        if self.x_change * direction >= 0:
+            if self.grounded:
+                return config.PLAYER_SPEED
+            else:
+                return config.PLAYER_SPEED * AIR_MOD
+
+        normalized_speed = abs(self.x_change) / config.PLAYER_MAX_SPEED
+        acceleration = config.PLAYER_SPEED * (1 - normalized_speed ** 0.5)
+        if self.grounded:
+            return config.PLAYER_SPEED
+        else:
+            return config.PLAYER_SPEED * AIR_MOD
+
+    def apply_friction(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RIGHT] or keys[pygame.K_LEFT]:
+            return
+        if self.x_change > 0 and self.grounded:
+            self.x_change -= config.FRICTION
+            if self.x_change < 0:
+                self.x_change = 0
+        elif self.x_change > 0 and not self.grounded:
+            self.x_change -= config.FRICTION * config.AIR_RESISTANCE
+            if self.x_change < 0:
+                self.x_change = 0
+        elif self.x_change < 0 and self.grounded:
+            self.x_change += config.FRICTION
+            if self.x_change > 0:
+                self.x_change = 0
+        elif self.x_change < 0 and not self.grounded:
+            self.x_change += config.FRICTION * config.AIR_RESISTANCE
+            if self.x_change > 0:
+                self.x_change = 0
+
+    def apply_gravity(self):
+        if not self.grounded:
+            if self.y_change > 0:
+                self.y_change += config.GRAVITY * FAST_FALL_MOD
+            else:
+                self.y_change += config.GRAVITY
+        else:
+            self.y_change = 0
 
     def collision_detect(self, direction):
-        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if direction == 'x':
-            if hits:
-                if self.x_change > 0:
-                    self.rect.right = hits[0].rect.left
-                elif self.x_change < 0:
-                    self.rect.left = hits[0].rect.right
-                self.x_change = 0
-        elif direction == 'y':
-            if hits:
-                if self.y_change > 0:
-                    self.rect.bottom = hits[0].rect.top
-                    self.grounded = True
-                elif self.y_change < 0:
-                    self.rect.top = hits[0].rect.bottom
-                self.y_change = 0
-            else:
-                self.grounded = False
+        super().collision_detect(direction)
 
         #Enemy collision
         enemy_hits = pygame.sprite.spritecollide(self, self.game.enemy, False)
@@ -168,115 +175,59 @@ class Player(AnimatedSprite):
                         self.grounded = False
 
                         # change animation to jump
-                        self.action_state = PLAYER_JUMP
+                        self.set_action_state(PLAYER_JUMP)
+
+                        # increase score
+                        self.game.score.increase_score(ENEMY_DIE_POINTS)
 
                         self.enemy_bounce.play()
             else:
                 for hit in enemy_hits:
-                    if hit.action_state != ENEMY_SMUSH:
-                        self.game.win = False
-                        self.game.playing = False
+                    if hit.action_state != ENEMY_SMUSH and not self.dead:
+                        self.die()
 
         # fell off the map
         if self.rect.top >= 480:
-            self.game.win = False
-            self.game.playing = False
+            self.die()
 
         # game win
         if pygame.sprite.spritecollide(self, self.game.flag, False):
-            self.game.win = True
-            self.game.playing = False
+            self.game.score.increase_score(LEVEL_WIN_POINTS)
+            self.game.next_level()
 
-    def check_if_falling(self):
-        self.rect.y += 1
-        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if not hits:
-            self.grounded = False
-        else:
-            self.grounded = True
-        self.rect.y -= 1
+    def die(self):
+        self.action_state = PLAYER_DEATH
+        self.frame = 0
+        self.y_change = 0
+        self.x_change = 0
+        self.dead = True
+        self.game.lives.lose_life()
 
-class Block(pygame.sprite.Sprite):
+
+class Block1(Block):
     def __init__(self, game, x, y):
+        super().__init__(game, x, y, SPRITE_BRICK_1, game.all_sprites, game.blocks)
 
-        self.game = game
-        self._layer = BLOCK_LAYER
 
-        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.blocks)
-        block_sprite = pygame.image.load(resource_path(SPRITE_BRICK_1)).convert_alpha()
-
-        self.x = x * TILESIZE
-        self.y = y * TILESIZE
-        self.width = TILESIZE
-        self.height = TILESIZE
-
-        #load player sprite
-        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
-        self.image.blit(block_sprite, (0, 0))
-
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
-
-class Block2(pygame.sprite.Sprite):
+class Block2(Block):
     def __init__(self, game, x, y):
+        super().__init__(game, x, y, SPRITE_BRICK_2, game.all_sprites, game.blocks)
 
-        self.game = game
-        self._layer = BLOCK_LAYER
 
-        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.blocks)
-        block_sprite = pygame.image.load(resource_path(SPRITE_BRICK_2)).convert_alpha()
-
-        self.x = x * TILESIZE
-        self.y = y * TILESIZE
-        self.width = TILESIZE
-        self.height = TILESIZE
-
-        #load player sprite
-        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
-        self.image.blit(block_sprite, (0, 0))
-
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
-
-class Flag(pygame.sprite.Sprite):
+class Flag(Block):
     def __init__(self, game, x, y):
+        super().__init__(game, x, y, SPRITE_FLAG, game.all_sprites, game.flag)
 
-        self.game = game
-        self._layer = BLOCK_LAYER
-
-        pygame.sprite.Sprite.__init__(self, self.game.all_sprites, self.game.flag)
-        flag_sprite = pygame.image.load(resource_path(SPRITE_FLAG)).convert_alpha()
-
-        self.x = x * TILESIZE
-        self.y = y * TILESIZE
-        self.width = TILESIZE
-        self.height = TILESIZE
-
-        #load player sprite
-        self.image = pygame.Surface([self.width, self.height], pygame.SRCALPHA)
-        self.image.blit(flag_sprite, (0, 0))
-
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
 
 class Enemy(AnimatedSprite):
     def __init__(self, game, x, y):
         self.game = game
         self._layer = ENEMY_LAYER
-        super().__init__(self.game.all_sprites, self.game.enemy)
+        super().__init__(x, y, self.game.all_sprites, self.game.enemy)
 
-        self.x = x * TILESIZE
-        self.y = y * TILESIZE
         self.width = ENEMY_WIDTH
         self.height = ENEMY_HEIGHT
 
-        self.x_change = 0
-        self.y_change = 0
-        self.move_state = 'left'
-        self.grounded = True
         self.wasOnScreen = False
 
         enemy_sprite = pygame.image.load(resource_path(SPRITE_ENEMY_1)).convert_alpha()
@@ -323,7 +274,7 @@ class Enemy(AnimatedSprite):
 
             #enemy gravity
             if not self.grounded:
-                self.y_change += GRAVITY
+                self.y_change += config.GRAVITY
             else:
                 self.y_change = 0
 
@@ -342,111 +293,4 @@ class Enemy(AnimatedSprite):
             self.x_change = 0
 
 
-    def collision_detect(self, direction):
-        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if direction == 'x':
-            if hits:
-                if self.x_change > 0:
-                    self.rect.right = hits[0].rect.left
-                    self.move_state = 'left'
-                elif self.x_change < 0:
-                    self.rect.left = hits[0].rect.right
-                    self.move_state = 'right'
-                self.x_change = 0
-        elif direction == 'y':
-            if hits:
-                if self.y_change > 0:
-                    self.rect.bottom = hits[0].rect.top
-                    self.grounded = True
-                elif self.y_change < 0:
-                    self.rect.top = hits[0].rect.bottom
-                self.y_change = 0
-            else:
-                False
 
-
-    def check_if_falling(self):
-        self.rect.y += 1
-        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        if not hits:
-            self.grounded = False
-        else:
-            self.grounded = True
-        self.rect.y -= 1
-
-class Camera:
-    def __init__(self, width, height, map_width, map_height):
-        self.camera = pygame.Rect(0, 0, WIN_WIDTH, WIN_HEIGHT)
-        self.width = width
-        self.height = height
-        self.map_width = map_width
-        self.map_height = map_height
-
-    def apply(self, entity):
-        return entity.rect.move(self.camera.topleft)
-
-    def update(self, target):
-        x = -target.rect.centerx + int(self.width / 2)
-        y = -target.rect.centery + int(self.height / 2)
-
-        # limit scrolling to map size
-        x = min(0, x)  # left
-        x = max(-(self.map_width - self.width), x)  # right
-        y = min(0, y)  # top
-        y = max(-(self.map_height - self.height), y)  # bottom
-
-        self.camera = pygame.Rect(x, y, self.width, self.height)
-
-    def get_world_rect(self):
-        # enemy action range
-        return pygame.Rect(-(self.camera.x - 60), self.camera.y, self.width, self.height)
-
-
-class Button:
-    def __init__(self, x, y, width, height, fg, bg, content, fontsize, scale_factor):
-        self.fontsize = fontsize
-        self.content = content
-
-        self.initial_x = x
-        self.initial_y = y
-        self.initial_width = width
-        self.initial_height = height
-        self.scale_factor = scale_factor
-
-        self.fg = fg
-        self.bg = bg
-
-        self.update_position(self.initial_x, self.initial_y, self.initial_width, self.initial_height, self.scale_factor)
-
-        self.button_sound = pygame.mixer.Sound(resource_path(SOUND_MENU_SELECT))
-        self.button_sound.set_volume(VOL_SELECT)
-
-    def update_position(self, x, y, width, height, scale_factor):
-        self.scale_factor = scale_factor
-
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-
-        self.scaled_width = int(self.width * self.scale_factor)
-        self.scaled_height = int(self.height * self.scale_factor)
-
-        self.image = pygame.Surface((self.scaled_width, self.scaled_height))
-        self.image.fill(self.bg)
-
-        self.rect = self.image.get_rect(topleft=(self.x * self.scale_factor, self.y * self.scale_factor))
-
-        scaled_fontsize = int(self.fontsize * self.scale_factor)
-        self.font = pygame.font.Font(resource_path(MAIN_FONT), scaled_fontsize)
-        self.text = self.font.render(self.content, True, self.fg)
-        self.text_rect = self.text.get_rect(center=(self.scaled_width / 2, self.scaled_height / 2))
-        self.image.blit(self.text, self.text_rect)
-
-    def is_pressed(self, pos, pressed):
-        if self.rect.collidepoint(pos):
-            if pressed[0]:
-                self.button_sound.play()
-                return True
-            return False
-        return False
